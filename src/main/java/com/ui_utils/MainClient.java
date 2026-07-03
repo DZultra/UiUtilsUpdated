@@ -2,29 +2,28 @@ package com.ui_utils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.JsonOps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.ButtonClickC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.screen.sync.ItemStackHash;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextCodecs;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.HashedStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.inventory.ContainerInput;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -41,21 +40,21 @@ public class MainClient implements ClientModInitializer {
     public static Font monospace;
     public static Color darkWhite;
 
-    public static KeyBinding restoreScreenKey;
+    public static KeyMapping restoreScreenKey;
 
     public static Logger LOGGER = LoggerFactory.getLogger("ui-utils");
-    public static MinecraftClient mc = MinecraftClient.getInstance();
+    public static Minecraft mc = Minecraft.getInstance();
     @Override
     public void onInitializeClient() {
         //UpdateUtils.checkForUpdates();
 
         // register "restore screen" key
-        restoreScreenKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding(
+        restoreScreenKey = KeyMappingHelper.registerKeyMapping(
+                new KeyMapping(
                         "Restore Screen",
-                        InputUtil.Type.KEYSYM,
+                        InputConstants.Type.KEYSYM,
                         GLFW.GLFW_KEY_V,
-                        new KeyBinding.Category(Identifier.of("ui_utils_category")
+                        new KeyMapping.Category(Identifier.parse("ui_utils_category")
                         )
                 )
         );
@@ -63,10 +62,10 @@ public class MainClient implements ClientModInitializer {
         // register event for END_CLIENT_TICK
         ClientTickEvents.END_CLIENT_TICK.register((client) -> {
             // detect if the "restore screen" keybinding is pressed
-            while (restoreScreenKey.wasPressed()) {
+            while (restoreScreenKey.consumeClick()) {
                 if (SharedVariables.storedScreen != null && SharedVariables.storedScreenHandler != null && client.player != null) {
                     client.setScreen(SharedVariables.storedScreen);
-                    client.player.currentScreenHandler = SharedVariables.storedScreenHandler;
+                    client.player.containerMenu = SharedVariables.storedScreenHandler;
                 }
             }
         });
@@ -77,81 +76,81 @@ public class MainClient implements ClientModInitializer {
     }
 
     @SuppressWarnings("all")
-    public static void createText(MinecraftClient mc, DrawContext context, TextRenderer textRenderer) {
+    public static void createText(Minecraft mc, GuiGraphicsExtractor context, net.minecraft.client.gui.Font textRenderer) {
         // display the current gui's sync id, revision
-        context.drawText(textRenderer, "Sync Id: " + mc.player.currentScreenHandler.syncId, 200, 5, Color.WHITE.getRGB(), false);
-        context.drawText(textRenderer, "Revision: " + mc.player.currentScreenHandler.getRevision(), 200, 35, Color.WHITE.getRGB(), false);
+        context.text(textRenderer, "Sync Id: " + mc.player.containerMenu.containerId, 200, 5, Color.WHITE.getRGB(), false);
+        context.text(textRenderer, "Revision: " + mc.player.containerMenu.getStateId(), 200, 35, Color.WHITE.getRGB(), false);
     }
 
     // bro are you ever going to clean this up?
     // this code is very messy, ill clean it up if you dont
     // -- MrBreakNFix
-    public static void createWidgets(MinecraftClient mc, Screen screen) {
+    public static void createWidgets(Minecraft mc, Screen screen) {
         // register "close without packet" button in all HandledScreens
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("Close without packet"), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Close without packet"), (button) -> {
             // closes the current gui without sending a packet to the current server
             mc.setScreen(null);
-        }).width(115).position(5, 5).build());
+        }).width(115).pos(5, 5).build());
 
         // register "de-sync" button in all HandledScreens
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("De-sync"), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("De-sync"), (button) -> {
             // keeps the current gui open client-side and closed server-side
-            if (mc.getNetworkHandler() != null && mc.player != null) {
-                mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+            if (mc.getConnection() != null && mc.player != null) {
+                mc.getConnection().send(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
             } else {
                 LOGGER.warn("Minecraft network handler or player was null while using 'De-sync' in UI Utils.");
             }
-        }).width(115).position(5, 35).build());
+        }).width(115).pos(5, 35).build());
 
         // register "send packets" button in all HandledScreens
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("Send packets: " + SharedVariables.sendUIPackets), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Send packets: " + SharedVariables.sendUIPackets), (button) -> {
             // tells the client if it should send any gui related packets
             SharedVariables.sendUIPackets = !SharedVariables.sendUIPackets;
-            button.setMessage(Text.of("Send packets: " + SharedVariables.sendUIPackets));
-        }).width(115).position(5, 65).build());
+            button.setMessage(Component.nullToEmpty("Send packets: " + SharedVariables.sendUIPackets));
+        }).width(115).pos(5, 65).build());
 
         // register "delay packets" button in all HandledScreens
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("Delay packets: " + SharedVariables.delayUIPackets), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Delay packets: " + SharedVariables.delayUIPackets), (button) -> {
             // toggles a setting to delay all gui related packets to be used later when turning this setting off
             SharedVariables.delayUIPackets = !SharedVariables.delayUIPackets;
-            button.setMessage(Text.of("Delay packets: " + SharedVariables.delayUIPackets));
-            if (!SharedVariables.delayUIPackets && !SharedVariables.delayedUIPackets.isEmpty() && mc.getNetworkHandler() != null) {
+            button.setMessage(Component.nullToEmpty("Delay packets: " + SharedVariables.delayUIPackets));
+            if (!SharedVariables.delayUIPackets && !SharedVariables.delayedUIPackets.isEmpty() && mc.getConnection() != null) {
                 for (Packet<?> packet : SharedVariables.delayedUIPackets) {
-                    mc.getNetworkHandler().sendPacket(packet);
+                    mc.getConnection().send(packet);
                 }
                 if (mc.player != null) {
-                    mc.player.sendMessage(Text.of("Sent " + SharedVariables.delayedUIPackets.size() + " packets."), false);
+                    mc.player.sendSystemMessage(Component.nullToEmpty("Sent " + SharedVariables.delayedUIPackets.size() + " packets."));
                 }
                 SharedVariables.delayedUIPackets.clear();
             }
-        }).width(115).position(5, 95).build());
+        }).width(115).pos(5, 95).build());
 
         // register "save gui" button in all HandledScreens
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("Save GUI"), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Save GUI"), (button) -> {
             // saves the current gui to a variable to be accessed later
             if (mc.player != null) {
-                SharedVariables.storedScreen = mc.currentScreen;
-                SharedVariables.storedScreenHandler = mc.player.currentScreenHandler;
+                SharedVariables.storedScreen = mc.screen;
+                SharedVariables.storedScreenHandler = mc.player.containerMenu;
             }
-        }).width(115).position(5, 125).build());
+        }).width(115).pos(5, 125).build());
 
         // register "disconnect and send packets" button in all HandledScreens
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("Disconnect and send packets"), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Disconnect and send packets"), (button) -> {
             // sends all "delayed" gui related packets before disconnecting, use: potential race conditions on non-vanilla servers
             SharedVariables.delayUIPackets = false;
-            if (mc.getNetworkHandler() != null) {
+            if (mc.getConnection() != null) {
                 for (Packet<?> packet : SharedVariables.delayedUIPackets) {
-                    mc.getNetworkHandler().sendPacket(packet);
+                    mc.getConnection().send(packet);
                 }
-                mc.getNetworkHandler().getConnection().disconnect(Text.of("Disconnecting (UI-UTILS)"));
+                mc.getConnection().getConnection().disconnect(Component.nullToEmpty("Disconnecting (UI-UTILS)"));
             } else {
                 LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) is null while client is disconnecting.");
             }
             SharedVariables.delayedUIPackets.clear();
-        }).width(160).position(5, 155).build());
+        }).width(160).pos(5, 155).build());
 
         // register "fabricate packet" button in all HandledScreens
-        ButtonWidget fabricatePacketButton = ButtonWidget.builder(Text.of("Fabricate packet"), (button) -> {
+        Button fabricatePacketButton = Button.builder(Component.nullToEmpty("Fabricate packet"), (button) -> {
             // creates a gui allowing you to fabricate packets
 
             JFrame frame = new JFrame("Choose Packet");
@@ -268,11 +267,11 @@ public class MainClient implements ClientModInitializer {
                         int revision = Integer.parseInt(revisionField.getText());
                         short slot = Short.parseShort(slotField.getText());
                         byte button0 = Byte.parseByte(buttonField.getText());
-                        SlotActionType action = MainClient.stringToSlotActionType(actionField.getSelectedItem().toString());
+                        ContainerInput action = MainClient.stringToSlotActionType(actionField.getSelectedItem().toString());
                         int timesToSend = Integer.parseInt(timesToSendField.getText());
 
                         if (action != null) {
-                            ClickSlotC2SPacket packet = new ClickSlotC2SPacket(syncId, revision, slot, button0, action, new Int2ObjectArrayMap<>(), ItemStackHash.EMPTY);
+                            ServerboundContainerClickPacket packet = new ServerboundContainerClickPacket(syncId, revision, slot, button0, action, new Int2ObjectArrayMap<>(), HashedStack.EMPTY);
                             try {
                                 Runnable toRun = getFabricatePacketRunnable(mc, delayBox.isSelected(), packet);
                                 for (int i = 0; i < timesToSend; i++) {
@@ -397,7 +396,7 @@ public class MainClient implements ClientModInitializer {
                         int buttonId = Integer.parseInt(buttonIdField.getText());
                         int timesToSend = Integer.parseInt(timesToSendField.getText());
 
-                        ButtonClickC2SPacket packet = new ButtonClickC2SPacket(syncId, buttonId);
+                        ServerboundContainerButtonClickPacket packet = new ServerboundContainerButtonClickPacket(syncId, buttonId);
                         try {
                             Runnable toRun = getFabricatePacketRunnable(mc, delayBox.isSelected(), packet);
                             for (int i = 0; i < timesToSend; i++) {
@@ -446,22 +445,22 @@ public class MainClient implements ClientModInitializer {
             frame.add(clickSlotButton);
             frame.add(buttonClickButton);
             frame.setVisible(true);
-        }).width(115).position(5, 185).build();
+        }).width(115).pos(5, 185).build();
         fabricatePacketButton.active = true;
-        screen.addDrawableChild(fabricatePacketButton);
+        screen.addRenderableWidget(fabricatePacketButton);
 
-        screen.addDrawableChild(ButtonWidget.builder(Text.of("Copy GUI Title JSON"), (button) -> {
+        screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Copy GUI Title JSON"), (button) -> {
             try {
-                if (mc.currentScreen == null) {
+                if (mc.screen == null) {
                     throw new IllegalStateException("The current minecraft screen (mc.currentScreen) is null");
                 }
                 // fixes #137
                 // From fabric wiki https://docs.fabricmc.net/develop/text-and-translations#serializing-text
-                mc.keyboard.setClipboard(new Gson().toJson(TextCodecs.CODEC.encodeStart(JsonOps.INSTANCE, mc.currentScreen.getTitle()).getOrThrow()));
+                mc.keyboardHandler.setClipboard(new Gson().toJson(ComponentSerialization.CODEC.encodeStart(JsonOps.INSTANCE, mc.screen.getTitle()).getOrThrow()));
             } catch (IllegalStateException e) {
                 LOGGER.error("Error while copying title JSON to clipboard", e);
             }
-        }).width(115).position(5, 215).build());
+        }).width(115).pos(5, 215).build());
     }
 
     @NotNull
@@ -475,24 +474,24 @@ public class MainClient implements ClientModInitializer {
     }
 
     @NotNull
-    private static Runnable getFabricatePacketRunnable(MinecraftClient mc, boolean delay, Packet<?> packet) {
+    private static Runnable getFabricatePacketRunnable(Minecraft mc, boolean delay, Packet<?> packet) {
         Runnable toRun;
         if (delay) {
             toRun = () -> {
-                if (mc.getNetworkHandler() != null) {
-                    mc.getNetworkHandler().sendPacket(packet);
+                if (mc.getConnection() != null) {
+                    mc.getConnection().send(packet);
                 } else {
                     LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) is null while sending fabricated packets.");
                 }
             };
         } else {
             toRun = () -> {
-                if (mc.getNetworkHandler() != null) {
-                    mc.getNetworkHandler().sendPacket(packet);
+                if (mc.getConnection() != null) {
+                    mc.getConnection().send(packet);
                 } else {
                     LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) is null while sending fabricated packets.");
                 }
-                ((ClientConnectionAccessor) mc.getNetworkHandler().getConnection()).getChannel().writeAndFlush(packet);
+                ((ClientConnectionAccessor) mc.getConnection().getConnection()).getChannel().writeAndFlush(packet);
             };
         }
         return toRun;
@@ -507,16 +506,16 @@ public class MainClient implements ClientModInitializer {
         }
     }
 
-    public static SlotActionType stringToSlotActionType(String string) {
+    public static ContainerInput stringToSlotActionType(String string) {
         // converts a string to SlotActionType
         return switch (string) {
-            case "PICKUP" -> SlotActionType.PICKUP;
-            case "QUICK_MOVE" -> SlotActionType.QUICK_MOVE;
-            case "SWAP" -> SlotActionType.SWAP;
-            case "CLONE" -> SlotActionType.CLONE;
-            case "THROW" -> SlotActionType.THROW;
-            case "QUICK_CRAFT" -> SlotActionType.QUICK_CRAFT;
-            case "PICKUP_ALL" -> SlotActionType.PICKUP_ALL;
+            case "PICKUP" -> ContainerInput.PICKUP;
+            case "QUICK_MOVE" -> ContainerInput.QUICK_MOVE;
+            case "SWAP" -> ContainerInput.SWAP;
+            case "CLONE" -> ContainerInput.CLONE;
+            case "THROW" -> ContainerInput.THROW;
+            case "QUICK_CRAFT" -> ContainerInput.QUICK_CRAFT;
+            case "PICKUP_ALL" -> ContainerInput.PICKUP_ALL;
             default -> null;
         };
     }
@@ -527,7 +526,7 @@ public class MainClient implements ClientModInitializer {
         TimerTask task = new TimerTask() {
             @Override
             public void run() {
-                MinecraftClient.getInstance().send(runnable);
+                Minecraft.getInstance().schedule(runnable);
             }
         };
         timer.schedule(task, delayMs);

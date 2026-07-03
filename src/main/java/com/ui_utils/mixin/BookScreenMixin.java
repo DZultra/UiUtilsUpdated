@@ -1,11 +1,5 @@
 package com.ui_utils.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.BookScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,14 +10,20 @@ import com.ui_utils.MainClient;
 import com.ui_utils.SharedVariables;
 
 import java.util.regex.Pattern;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.BookViewScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 
-@Mixin(BookScreen.class)
+@Mixin(BookViewScreen.class)
 public class BookScreenMixin extends Screen {
-    protected BookScreenMixin(Text title) {
+    protected BookScreenMixin(Component title) {
         super(title);
     }
     @Unique
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
     @Inject(at = @At("TAIL"), method = "init")
     public void init(CallbackInfo ci) {
@@ -31,37 +31,37 @@ public class BookScreenMixin extends Screen {
             MainClient.createWidgets(mc, this);
 
             // create chat box
-            TextFieldWidget addressField = new TextFieldWidget(textRenderer, 5, 245, 160, 20, Text.of("Chat ...")) {
+            EditBox addressField = new EditBox(font, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                 @Override
-                public boolean keyPressed(KeyInput input) {
-                    if (input.getKeycode() == GLFW.GLFW_KEY_ENTER) {
-                        if (this.getText().equals("^toggleuiutils")) {
+                public boolean keyPressed(KeyEvent input) {
+                    if (input.input() == GLFW.GLFW_KEY_ENTER) {
+                        if (this.getValue().equals("^toggleuiutils")) {
                             SharedVariables.enabled = !SharedVariables.enabled;
                             if (mc.player != null) {
-                                mc.player.sendMessage(Text.of("UI-Utils is now " + (SharedVariables.enabled ? "enabled" : "disabled") + "."), false);
+                                mc.player.sendSystemMessage(Component.nullToEmpty("UI-Utils is now " + (SharedVariables.enabled ? "enabled" : "disabled") + "."));
                             }
                             return false;
                         }
 
-                        if (mc.getNetworkHandler() != null) {
-                            if (this.getText().startsWith("/")) {
-                                mc.getNetworkHandler().sendChatCommand(this.getText().replaceFirst(Pattern.quote("/"), ""));
+                        if (mc.getConnection() != null) {
+                            if (this.getValue().startsWith("/")) {
+                                mc.getConnection().sendCommand(this.getValue().replaceFirst(Pattern.quote("/"), ""));
                             } else {
-                                mc.getNetworkHandler().sendChatMessage(this.getText());
+                                mc.getConnection().sendChat(this.getValue());
                             }
                         } else {
                             MainClient.LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) was null while trying to send chat message from UI Utils.");
                         }
 
-                        this.setText("");
+                        this.setValue("");
                     }
                     return super.keyPressed(input);
                 }
             };
-            addressField.setText("");
+            addressField.setValue("");
             addressField.setMaxLength(255);
 
-            this.addDrawableChild(addressField);
+            this.addRenderableWidget(addressField);
         }
     }
 }

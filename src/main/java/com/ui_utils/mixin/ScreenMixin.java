@@ -1,16 +1,6 @@
 package com.ui_utils.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.LecternScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,23 +12,34 @@ import com.ui_utils.SharedVariables;
 import com.ui_utils.mixin.accessor.ScreenAccessor;
 
 import java.util.regex.Pattern;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.LecternScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 
 @SuppressWarnings("all")
 @Mixin(Screen.class)
 public abstract class ScreenMixin {
     @Shadow
-    public abstract <T extends Element & Drawable & Selectable> T addDrawableChild(T drawableElement);
+    public abstract <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T drawableElement);
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    private static final Minecraft mc = Minecraft.getInstance();
 
-    private TextFieldWidget addressField;
+    private EditBox addressField;
     private boolean initialized = false;
 
     // inject at the end of the render method (if instanceof LecternScreen)
     @Inject(at = @At("TAIL"), method = "init")
     public void init(int width, int height, CallbackInfo ci) {
         // check if the current gui is a lectern gui and if ui-utils is enabled
-        if (mc.currentScreen instanceof LecternScreen screen && SharedVariables.enabled) {
+        if (mc.screen instanceof LecternScreen screen && SharedVariables.enabled) {
             // setup widgets
             if (/*!this.initialized*/ true) { // bro why did you do this cxg :skull:
                 // check if the current gui is a lectern gui and ui-utils is enabled
@@ -46,51 +47,51 @@ public abstract class ScreenMixin {
                 // why would you read them anyway tbh
                 // ill clean this up later if you dont fix it
 
-                TextRenderer textRenderer = ((ScreenAccessor) this).getTextRenderer();
+                Font textRenderer = ((ScreenAccessor) this).getFont();
                 MainClient.createWidgets(mc, screen);
 
                 // create chat box
-                this.addressField = new TextFieldWidget(textRenderer, 5, 245, 160, 20, Text.of("Chat ...")) {
+                this.addressField = new EditBox(textRenderer, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                     @Override
-                    public boolean keyPressed(KeyInput input) {
-                        if (input.getKeycode() == GLFW.GLFW_KEY_ENTER) {
-                            if (this.getText().equals("^toggleuiutils")) {
+                    public boolean keyPressed(KeyEvent input) {
+                        if (input.input() == GLFW.GLFW_KEY_ENTER) {
+                            if (this.getValue().equals("^toggleuiutils")) {
                                 SharedVariables.enabled = !SharedVariables.enabled;
                                 if (mc.player != null) {
-                                    mc.player.sendMessage(Text.of("UI-Utils is now " + (SharedVariables.enabled ? "enabled" : "disabled") + "."), false);
+                                    mc.player.sendSystemMessage(Component.nullToEmpty("UI-Utils is now " + (SharedVariables.enabled ? "enabled" : "disabled") + "."));
                                 }
                                 return false;
                             }
 
-                            if (mc.getNetworkHandler() != null) {
-                                if (this.getText().startsWith("/")) {
-                                    mc.getNetworkHandler().sendChatCommand(this.getText().replaceFirst(Pattern.quote("/"), ""));
+                            if (mc.getConnection() != null) {
+                                if (this.getValue().startsWith("/")) {
+                                    mc.getConnection().sendCommand(this.getValue().replaceFirst(Pattern.quote("/"), ""));
                                 } else {
-                                    mc.getNetworkHandler().sendChatMessage(this.getText());
+                                    mc.getConnection().sendChat(this.getValue());
                                 }
                             } else {
                                 MainClient.LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) was null while trying to send chat message from UI Utils.");
                             }
 
-                            this.setText("");
+                            this.setValue("");
                         }
                         return super.keyPressed(input);
                     }
                 };
-                this.addressField.setText("");
+                this.addressField.setValue("");
                 this.addressField.setMaxLength(255);
 
-                this.addDrawableChild(this.addressField);
+                this.addRenderableWidget(this.addressField);
                 this.initialized = true;
             }
         }
     }
 
-    @Inject(at = @At("TAIL"), method = "render")
-    public void render(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    @Inject(at = @At("TAIL"), method = "extractRenderState")
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         // display sync id, revision, if ui utils is enabled
-        if (SharedVariables.enabled && mc.player != null && mc.currentScreen instanceof LecternScreen) {
-            MainClient.createText(mc, context, ((ScreenAccessor) this).getTextRenderer());
+        if (SharedVariables.enabled && mc.player != null && mc.screen instanceof LecternScreen) {
+            MainClient.createText(mc, context, ((ScreenAccessor) this).getFont());
         }
     }
 }

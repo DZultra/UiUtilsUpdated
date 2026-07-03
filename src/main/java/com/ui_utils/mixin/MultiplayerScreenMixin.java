@@ -1,16 +1,16 @@
 package com.ui_utils.mixin;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.ui_utils.SharedVariables;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.network.chat.Component;
 
-@Mixin(MultiplayerScreen.class)
+@Mixin(JoinMultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen {
     private MultiplayerScreenMixin() {
         super(null);
@@ -20,16 +20,16 @@ public class MultiplayerScreenMixin extends Screen {
     public void init(CallbackInfo ci) {
         if (SharedVariables.enabled) {
             // Create "Bypass Resource Pack" option
-            this.addDrawableChild(ButtonWidget.builder(Text.of("Bypass Resource Pack: " + (SharedVariables.bypassResourcePack ? "ON" : "OFF")), (button) -> {
+            this.addRenderableWidget(Button.builder(Component.nullToEmpty("Bypass Resource Pack: " + (SharedVariables.bypassResourcePack ? "ON" : "OFF")), (button) -> {
                 SharedVariables.bypassResourcePack = !SharedVariables.bypassResourcePack;
-                button.setMessage(Text.of("Bypass Resource Pack: " + (SharedVariables.bypassResourcePack ? "ON" : "OFF")));
-            }).width(160).position(this.width - 170, this.height - 50).build());
+                button.setMessage(Component.nullToEmpty("Bypass Resource Pack: " + (SharedVariables.bypassResourcePack ? "ON" : "OFF")));
+            }).width(160).pos(this.width - 170, this.height - 50).build());
 
             // Create "Force Deny" option
-            this.addDrawableChild(ButtonWidget.builder(Text.of("Force Deny: " + (SharedVariables.resourcePackForceDeny ? "ON" : "OFF")), (button) -> {
+            this.addRenderableWidget(Button.builder(Component.nullToEmpty("Force Deny: " + (SharedVariables.resourcePackForceDeny ? "ON" : "OFF")), (button) -> {
                 SharedVariables.resourcePackForceDeny = !SharedVariables.resourcePackForceDeny;
-                button.setMessage(Text.of("Force Deny: " + (SharedVariables.resourcePackForceDeny ? "ON" : "OFF")));
-            }).width(160).position(this.width - 170, this.height - 25).build());
+                button.setMessage(Component.nullToEmpty("Force Deny: " + (SharedVariables.resourcePackForceDeny ? "ON" : "OFF")));
+            }).width(160).pos(this.width - 170, this.height - 25).build());
         }
     }
 }
