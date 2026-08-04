@@ -21,8 +21,8 @@ public class ChatScreenMixin {
             } else {
                 MainClient.LOGGER.warn("Minecraft player was nulling while enabling / disabling UI Utils.");
             }
-            Minecraft.getInstance().gui.getChat().addRecentChat(chatText);
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.hud.getChat().addRecentChat(chatText);
+            Minecraft.getInstance().gui.setScreen(null);
             ci.cancel();
         }
     }

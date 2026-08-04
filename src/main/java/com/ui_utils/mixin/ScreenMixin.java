@@ -1,20 +1,11 @@
 package com.ui_utils.mixin;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import org.lwjgl.glfw.GLFW;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.ui_utils.MainClient;
 import com.ui_utils.SharedVariables;
 import com.ui_utils.mixin.accessor.ScreenAccessor;
-
-import java.util.regex.Pattern;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -23,6 +14,14 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.LecternScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.regex.Pattern;
 
 @SuppressWarnings("all")
 @Mixin(Screen.class)
@@ -39,7 +38,7 @@ public abstract class ScreenMixin {
     @Inject(at = @At("TAIL"), method = "init")
     public void init(int width, int height, CallbackInfo ci) {
         // check if the current gui is a lectern gui and if ui-utils is enabled
-        if (mc.screen instanceof LecternScreen screen && SharedVariables.enabled) {
+        if (mc.gui.screen() instanceof LecternScreen screen && SharedVariables.enabled) {
             // setup widgets
             if (/*!this.initialized*/ true) { // bro why did you do this cxg :skull:
                 // check if the current gui is a lectern gui and ui-utils is enabled
@@ -90,7 +89,7 @@ public abstract class ScreenMixin {
     @Inject(at = @At("TAIL"), method = "extractRenderState")
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         // display sync id, revision, if ui utils is enabled
-        if (SharedVariables.enabled && mc.player != null && mc.screen instanceof LecternScreen) {
+        if (SharedVariables.enabled && mc.player != null && mc.gui.screen() instanceof LecternScreen) {
             MainClient.createText(mc, context, ((ScreenAccessor) this).getFont());
         }
     }

@@ -25,7 +25,7 @@ public class SleepingChatScreenMixin extends Screen {
                 // wakes the player up client-side
                 if (this.minecraft != null && this.minecraft.player != null) {
                     this.minecraft.player.stopSleeping();
-                    this.minecraft.setScreen(null);
+                    this.minecraft.gui.setScreen(null);
                 }
             }).width(115).pos(5, 5).build());
         }

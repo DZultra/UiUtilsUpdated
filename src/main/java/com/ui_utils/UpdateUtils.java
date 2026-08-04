@@ -2,6 +2,8 @@ package com.ui_utils;
 
 import com.google.gson.Gson;
 import com.ui_utils.gui.UpdateScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.awt.*;
 import java.io.IOException;
@@ -15,8 +17,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
 
 import static com.ui_utils.MainClient.getModVersion;
 
@@ -82,6 +82,6 @@ public class UpdateUtils {
         } catch (IOException | URISyntaxException e) {
             MainClient.LOGGER.info(e.getLocalizedMessage(), Level.SEVERE);
         }
-        Minecraft.getInstance().setScreen(new UpdateScreen(Component.empty()));
+        Minecraft.getInstance().gui.setScreen(new UpdateScreen(Component.empty()));
     }
 }

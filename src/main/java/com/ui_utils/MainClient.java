@@ -64,7 +64,7 @@ public class MainClient implements ClientModInitializer {
             // detect if the "restore screen" keybinding is pressed
             while (restoreScreenKey.consumeClick()) {
                 if (SharedVariables.storedScreen != null && SharedVariables.storedScreenHandler != null && client.player != null) {
-                    client.setScreen(SharedVariables.storedScreen);
+                    client.gui.setScreen(SharedVariables.storedScreen);
                     client.player.containerMenu = SharedVariables.storedScreenHandler;
                 }
             }
@@ -89,7 +89,7 @@ public class MainClient implements ClientModInitializer {
         // register "close without packet" button in all HandledScreens
         screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Close without packet"), (button) -> {
             // closes the current gui without sending a packet to the current server
-            mc.setScreen(null);
+            mc.gui.setScreen(null);
         }).width(115).pos(5, 5).build());
 
         // register "de-sync" button in all HandledScreens
@@ -129,7 +129,7 @@ public class MainClient implements ClientModInitializer {
         screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Save GUI"), (button) -> {
             // saves the current gui to a variable to be accessed later
             if (mc.player != null) {
-                SharedVariables.storedScreen = mc.screen;
+                SharedVariables.storedScreen = mc.gui.screen();
                 SharedVariables.storedScreenHandler = mc.player.containerMenu;
             }
         }).width(115).pos(5, 125).build());
@@ -451,12 +451,12 @@ public class MainClient implements ClientModInitializer {
 
         screen.addRenderableWidget(Button.builder(Component.nullToEmpty("Copy GUI Title JSON"), (button) -> {
             try {
-                if (mc.screen == null) {
+                if (mc.gui.screen() == null) {
                     throw new IllegalStateException("The current minecraft screen (mc.currentScreen) is null");
                 }
                 // fixes #137
                 // From fabric wiki https://docs.fabricmc.net/develop/text-and-translations#serializing-text
-                mc.keyboardHandler.setClipboard(new Gson().toJson(ComponentSerialization.CODEC.encodeStart(JsonOps.INSTANCE, mc.screen.getTitle()).getOrThrow()));
+                mc.keyboardHandler.setClipboard(new Gson().toJson(ComponentSerialization.CODEC.encodeStart(JsonOps.INSTANCE, mc.gui.screen().getTitle()).getOrThrow()));
             } catch (IllegalStateException e) {
                 LOGGER.error("Error while copying title JSON to clipboard", e);
             }

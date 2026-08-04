@@ -12,7 +12,7 @@
     "HandledScreenMixin",
     "MultiplayerScreenMixin",
     "ScreenMixin",
-    "SignEditScreenMixin",
+    "AbstractSignEditScreenMixin",
     "SleepingChatScreenMixin",
     "TitleScreenMixin",
     "accessor.ClientConnectionAccessor",
