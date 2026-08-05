@@ -1,7 +1,16 @@
 package com.ui_utils.mixin;
 
+import com.ui_utils.MainClient;
+import com.ui_utils.SharedVariables;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.Slot;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
@@ -11,17 +20,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import com.ui_utils.MainClient;
-import com.ui_utils.SharedVariables;
 
 import java.util.regex.Pattern;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.Slot;
 
 @Mixin(AbstractContainerScreen.class)
 public abstract class HandledScreenMixin extends Screen {
@@ -92,7 +92,9 @@ public abstract class HandledScreenMixin extends Screen {
             this.addressField = new EditBox(this.font, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                 @Override
                 public boolean keyPressed(KeyEvent input) {
+                    System.out.println("key pressed: " + input.key() + " | input " + input.input());
                     if (input.input() == GLFW.GLFW_KEY_ENTER) {
+                        System.out.println("a");
                         if (this.getValue().equals("^toggleuiutils")) {
                             SharedVariables.enabled = !SharedVariables.enabled;
                             if (mc.player != null) {
@@ -108,8 +110,8 @@ public abstract class HandledScreenMixin extends Screen {
                             } else {
                                 mc.getConnection().sendChat(this.getValue());
                             }
-                    } else {
-                            MainClient.LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) was null while trying to send chat message from UI Utils.");
+                        } else {
+                                MainClient.LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) was null while trying to send chat message from UI Utils.");
                         }
 
                         this.setValue("");
@@ -126,7 +128,6 @@ public abstract class HandledScreenMixin extends Screen {
 
     @Inject(at = @At("HEAD"), method = "keyPressed", cancellable = true)
     public void keyPressed(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
-        cir.cancel();
         if (super.keyPressed(input)) {
             cir.setReturnValue(true);
         } else if (MainClient.mc.options.keyInventory.matches(input) && (this.addressField == null || !this.addressField.isHoveredOrFocused())) {
