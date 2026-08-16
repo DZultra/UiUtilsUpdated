@@ -42,28 +42,22 @@ public abstract class HandledScreenMixin extends Screen {
     @Unique
     private boolean invokeHandleHotbarKey(int keyCode, int scanCode) {
         if (this.uiUtils_handleHotbarMethod == null) {
-            // try several likely names, then fallback to any method taking (int,int) and returning boolean
-            String[] names = new String[]{"handleHotbarKeyPressed", "handleHotbarKeyPress", "handleHotbarKey", "onHotbarKey"};
+            String[] names = new String[]{
+                    "checkHotbarKeyPressed",   // <-- ADD THIS (Mojang mappings 1.21+ / 26.2)
+                    "handleHotbarKeyPressed",
+                    "handleHotbarKeyPress",
+                    "handleHotbarKey",
+                    "onHotbarKey"
+            };
             Class<?> cls = this.getClass();
             for (String name : names) {
                 try {
-                    java.lang.reflect.Method m = cls.getDeclaredMethod(name, int.class, int.class);
+                    // Use getMethod to search inherited methods too
+                    java.lang.reflect.Method m = cls.getMethod(name, int.class, int.class);
                     m.setAccessible(true);
                     this.uiUtils_handleHotbarMethod = m;
                     break;
                 } catch (NoSuchMethodException ignored) {}
-            }
-            if (this.uiUtils_handleHotbarMethod == null) {
-                for (java.lang.reflect.Method m : cls.getDeclaredMethods()) {
-                    if (m.getReturnType() == boolean.class) {
-                        Class<?>[] params = m.getParameterTypes();
-                        if (params.length == 2 && params[0] == int.class && params[1] == int.class) {
-                            m.setAccessible(true);
-                            this.uiUtils_handleHotbarMethod = m;
-                            break;
-                        }
-                    }
-                }
             }
         }
 
@@ -87,33 +81,24 @@ public abstract class HandledScreenMixin extends Screen {
     public void init(CallbackInfo ci) {
         if (SharedVariables.enabled) {
             MainClient.createWidgets(mc, this);
-
-            // create chat box
             this.addressField = new EditBox(this.font, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                 @Override
                 public boolean keyPressed(KeyEvent input) {
-                    System.out.println("key pressed: " + input.key() + " | input " + input.input());
                     if (input.input() == GLFW.GLFW_KEY_ENTER) {
-                        System.out.println("a");
                         if (this.getValue().equals("^toggleuiutils")) {
                             SharedVariables.enabled = !SharedVariables.enabled;
                             if (mc.player != null) {
                                 mc.player.sendSystemMessage(Component.nullToEmpty("UI-Utils is now " + (SharedVariables.enabled ? "enabled" : "disabled") + "."));
-
                             }
                             return false;
                         }
-
                         if (mc.getConnection() != null) {
                             if (this.getValue().startsWith("/")) {
                                 mc.getConnection().sendCommand(this.getValue().replaceFirst(Pattern.quote("/"), ""));
                             } else {
                                 mc.getConnection().sendChat(this.getValue());
                             }
-                        } else {
-                                MainClient.LOGGER.warn("Minecraft network handler (mc.getNetworkHandler()) was null while trying to send chat message from UI Utils.");
                         }
-
                         this.setValue("");
                     }
                     return super.keyPressed(input);
@@ -121,31 +106,46 @@ public abstract class HandledScreenMixin extends Screen {
             };
             this.addressField.setValue("");
             this.addressField.setMaxLength(256);
-
             this.addRenderableWidget(this.addressField);
         }
     }
 
     @Inject(at = @At("HEAD"), method = "keyPressed", cancellable = true)
     public void keyPressed(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
+        // If our chat box is focused, let it handle everything and block vanilla
+        if (this.addressField != null && this.addressField.isFocused()) {
+            if (this.addressField.keyPressed(input)) {
+                cir.setReturnValue(true);
+                return;
+            }
+            // Still cancel so vanilla doesn't close inventory on 'E' while typing
+            cir.setReturnValue(true);
+            return;
+        }
+
         if (super.keyPressed(input)) {
             cir.setReturnValue(true);
-        } else if (MainClient.mc.options.keyInventory.matches(input) && (this.addressField == null || !this.addressField.isHoveredOrFocused())) {
-            // Crashes if address field does not exist (because of ui utils disabled, this is a temporary fix.)
+        } else if (MainClient.mc.options.keyInventory.matches(input)
+                && (this.addressField == null || !this.addressField.isHoveredOrFocused())) {
             this.onClose();
             cir.setReturnValue(true);
         } else {
-            // attempt to invoke the internal hotbar handler (name changed in mappings).
-            this.invokeHandleHotbarKey(input.input(), input.scancode());
+            if (this.invokeHandleHotbarKey(input.input(), input.scancode())) {
+                cir.setReturnValue(true);
+                return;
+            }
             if (this.hoveredSlot != null && this.hoveredSlot.hasItem()) {
                 if (mc.options.keyPickItem.matches(input)) {
                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ContainerInput.CLONE);
+                    cir.setReturnValue(true);
+                    return;
                 } else if (mc.options.keyDrop.matches(input)) {
                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ContainerInput.THROW);
+                    cir.setReturnValue(true);
+                    return;
                 }
             }
-
-            cir.setReturnValue(true);
+            // Do NOT cancel here — let vanilla handle number keys and anything else
         }
     }
 
