@@ -1,5 +1,6 @@
 package com.ui_utils.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.ui_utils.MainClient;
 import com.ui_utils.SharedVariables;
 import com.ui_utils.mixin.accessor.ScreenAccessor;
@@ -14,7 +15,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.LecternScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -53,7 +53,7 @@ public abstract class ScreenMixin {
                 this.addressField = new EditBox(textRenderer, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                     @Override
                     public boolean keyPressed(KeyEvent input) {
-                        if (input.input() == GLFW.GLFW_KEY_ENTER) {
+                        if (input.input() == InputConstants.KEY_RETURN) {
                             if (this.getValue().equals("^toggleuiutils")) {
                                 SharedVariables.enabled = !SharedVariables.enabled;
                                 if (mc.player != null) {

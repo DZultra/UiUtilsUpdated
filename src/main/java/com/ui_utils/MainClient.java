@@ -25,7 +25,6 @@ import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.ContainerInput;
 import org.jetbrains.annotations.NotNull;
-import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.ui_utils.mixin.accessor.ClientConnectionAccessor;
@@ -52,8 +51,8 @@ public class MainClient implements ClientModInitializer {
         restoreScreenKey = KeyMappingHelper.registerKeyMapping(
                 new KeyMapping(
                         "Restore Screen",
-                        InputConstants.Type.KEYSYM,
-                        GLFW.GLFW_KEY_V,
+                        InputConstants.Type.KEYBOARD,
+                        InputConstants.KEY_V,
                         new KeyMapping.Category(Identifier.parse("ui_utils_category")
                         )
                 )

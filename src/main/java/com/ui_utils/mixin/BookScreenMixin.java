@@ -1,6 +1,6 @@
 package com.ui_utils.mixin;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -34,7 +34,7 @@ public class BookScreenMixin extends Screen {
             EditBox addressField = new EditBox(font, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                 @Override
                 public boolean keyPressed(KeyEvent input) {
-                    if (input.input() == GLFW.GLFW_KEY_ENTER) {
+                    if (input.input() == InputConstants.KEY_RETURN) {
                         if (this.getValue().equals("^toggleuiutils")) {
                             SharedVariables.enabled = !SharedVariables.enabled;
                             if (mc.player != null) {

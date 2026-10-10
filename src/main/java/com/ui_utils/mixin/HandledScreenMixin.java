@@ -1,5 +1,6 @@
 package com.ui_utils.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.ui_utils.MainClient;
 import com.ui_utils.SharedVariables;
 import net.minecraft.client.Minecraft;
@@ -12,7 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
+import org.jspecify.annotations.NonNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -40,7 +41,7 @@ public abstract class HandledScreenMixin extends Screen {
     private java.lang.reflect.Method uiUtils_handleHotbarMethod = null;
 
     @Unique
-    private boolean invokeHandleHotbarKey(int keyCode, int scanCode) {
+    private boolean invokeHandleHotbarKey(int keyCode) {
         if (this.uiUtils_handleHotbarMethod == null) {
             String[] names = new String[]{
                     "checkHotbarKeyPressed",   // <-- ADD THIS (Mojang mappings 1.21+ / 26.2)
@@ -63,7 +64,7 @@ public abstract class HandledScreenMixin extends Screen {
 
         if (this.uiUtils_handleHotbarMethod != null) {
             try {
-                Object ret = this.uiUtils_handleHotbarMethod.invoke(this, keyCode, scanCode);
+                Object ret = this.uiUtils_handleHotbarMethod.invoke(this, keyCode);
                 if (ret instanceof Boolean) return (Boolean) ret;
             } catch (ReflectiveOperationException ignored) {}
         }
@@ -83,8 +84,8 @@ public abstract class HandledScreenMixin extends Screen {
             MainClient.createWidgets(mc, this);
             this.addressField = new EditBox(this.font, 5, 245, 160, 20, Component.nullToEmpty("Chat ...")) {
                 @Override
-                public boolean keyPressed(KeyEvent input) {
-                    if (input.input() == GLFW.GLFW_KEY_ENTER) {
+                public boolean keyPressed(@NonNull KeyEvent input) {
+                    if (input.input() == InputConstants.KEY_RETURN) {
                         if (this.getValue().equals("^toggleuiutils")) {
                             SharedVariables.enabled = !SharedVariables.enabled;
                             if (mc.player != null) {
@@ -130,7 +131,7 @@ public abstract class HandledScreenMixin extends Screen {
             this.onClose();
             cir.setReturnValue(true);
         } else {
-            if (this.invokeHandleHotbarKey(input.input(), input.scancode())) {
+            if (this.invokeHandleHotbarKey(input.input())) {
                 cir.setReturnValue(true);
                 return;
             }
